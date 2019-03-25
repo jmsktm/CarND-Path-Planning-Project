@@ -1,0 +1,12 @@
+{
+    "license": "MIT",
+    "project": {
+        "name": "CarND-Path-Planning-Project",
+        "author": "James Singh"
+    },
+    "road": {
+        "speed-limit": 50,
+        "total-lanes": 6,
+        "lane-width-in-meters": 4
+    }
+}
