@@ -17,6 +17,12 @@ class Map {
         string path = "../data/highway_map.csv";
         double max_s = 6945.554;
         vector<Waypoint> waypoints;
+
+        vector<double> map_waypoints_x;
+        vector<double> map_waypoints_y;
+        vector<double> map_waypoints_s;
+        vector<double> map_waypoints_dx;
+        vector<double> map_waypoints_dy;
     public:
         Map() {
             std::ifstream in_map_(path.c_str(), std::ifstream::in);
@@ -35,6 +41,12 @@ class Map {
                 iss >> dx;
                 iss >> dy;
 
+                map_waypoints_x.push_back(x);
+                map_waypoints_y.push_back(y);
+                map_waypoints_s.push_back(s);
+                map_waypoints_dx.push_back(dx);
+                map_waypoints_dy.push_back(dy);
+
                 Waypoint waypoint = Waypoint(x, y, s, dx, dy);
                 this->waypoints.push_back(waypoint);
             }
@@ -42,6 +54,26 @@ class Map {
 
         vector<Waypoint> getWaypoints() {
             return waypoints;
+        }
+
+        vector<double> get_waypoints_x() {
+            return map_waypoints_x;
+        }
+
+        vector<double> get_waypoints_y() {
+            return map_waypoints_y;
+        }
+
+        vector<double> get_waypoints_s() {
+            return map_waypoints_s;
+        }
+
+        vector<double> get_waypoints_dx() {
+            return map_waypoints_dx;
+        }
+
+        vector<double> get_waypoints_dy() {
+            return map_waypoints_dy;
         }
 };
 #endif
