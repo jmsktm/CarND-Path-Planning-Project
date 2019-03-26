@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 #include "../src/json.hpp"
-#include "../src/telemetry.cpp"
+#include "../src/telemetry.h"
 
 TEST_CASE("telemetry.cpp >> _hasEventMessageData()") {
     REQUIRE_FALSE(Telemetry("")._hasEventMessageData());

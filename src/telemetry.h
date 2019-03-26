@@ -17,6 +17,9 @@ class Telemetry {
         }
 
         bool _hasEventMessageData() {
+            // "42" at the start of the message means there's a websocket message event.
+            // The 4 signifies a websocket message
+            // The 2 signifies a websocket event
             if (this->str.size() > 2 && this->str[0] == '4' && this->str[1] == '2') {
                 auto found_null = str.find("null");
                 auto b1 = str.find_first_of("[");
