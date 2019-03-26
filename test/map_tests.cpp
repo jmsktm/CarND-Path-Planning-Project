@@ -13,6 +13,12 @@ TEST_CASE("Map should contain a list of endpoints on initialization") {
     Map map = Map();
     vector<Waypoint> waypoints = map.getWaypoints();
     REQUIRE(waypoints.size() == 181); // There are 181 waypoints in provided data file.
+
+    REQUIRE(map.get_waypoints_x().size() == 181);
+    REQUIRE(map.get_waypoints_y().size() == 181);
+    REQUIRE(map.get_waypoints_s().size() == 181);
+    REQUIRE(map.get_waypoints_dx().size() == 181);
+    REQUIRE(map.get_waypoints_dy().size() == 181);
 }
 
 SCENARIO("Test for waypoints against data from provided file") {
