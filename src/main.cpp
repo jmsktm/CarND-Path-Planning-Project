@@ -10,7 +10,7 @@
 #include "telemetry.h"
 #include "waypoint.h"
 #include "map.h"
-#include "simpleplanner.h"
+#include "planners/simpleplanner.h"
 
 using nlohmann::json;
 using std::string;

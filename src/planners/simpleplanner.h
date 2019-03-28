@@ -1,9 +1,9 @@
 #ifndef SDC_SIMPLE_PLANNER_MODULE
 #define SDC_SIMPLE_PLANNER_MODULE
 
-#include "map.h"
-#include "telemetry.h"
-#include "helpers.h"
+#include "../map.h"
+#include "../telemetry.h"
+#include "../helpers.h"
 
 /**
  * Simple planner keeps the lane along lane#2 (middle lane) in straight lines
