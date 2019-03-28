@@ -1,6 +1,8 @@
+#ifndef SDC_TELEMETRY_MODULE
+#define SDC_TELEMETRY_MODULE
 #include <string>
 
-#include "../src/json.hpp"
+#include "json.hpp"
 using nlohmann::json;
 
 using std::string;
@@ -11,6 +13,9 @@ class Telemetry {
         json data;
 
     public:
+        Telemetry() {}
+        ~Telemetry() {}
+
         Telemetry(string str) {
             this->str = str;
             data = this->_getTelemetryData();
@@ -100,3 +105,4 @@ class Telemetry {
             return data["sensor_fusion"];
         }
 };
+#endif
