@@ -6,7 +6,13 @@
     },
     "road": {
         "speed-limit": 49.5,
-        "total-lanes": 6,
+        "current-road-lanes": 3,
+        "opposite-road-lanes": 3,
         "lane-width-in-meters": 4
+    },
+    "setup": {
+        "cycle-period-in-ms": 20,
+        "suggested-points-count": 50,
+        "start-lane": 1
     }
 }

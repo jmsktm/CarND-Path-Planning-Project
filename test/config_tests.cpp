@@ -23,7 +23,8 @@ TEST_CASE("Read project config (double values; the second level) from config/con
 SCENARIO("Read road configs (int values; second level) from config/config.json") {
     ConfigInterface *config = new Config();
     auto [key1, key2, expected] = GENERATE(table<string, string, int> ({
-        { "road", "total-lanes", 6 },
+        { "road", "current-road-lanes", 3 },
+        { "road", "opposite-road-lanes", 3 },
         { "road", "lane-width-in-meters", 4 }
     }));
 
