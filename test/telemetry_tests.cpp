@@ -219,3 +219,39 @@ TEST_CASE("Get the 5 points for spline generation when more than 2 previous path
     REQUIRE(actual_ptsx == expected_ptsx);
     REQUIRE(actual_ptsy == expected_ptsy);
 }
+
+TEST_CASE("Convert from world frame coordinates to car frame coordinates") {
+    // Rounding off to account for unpredictably changing precision
+    #define roundz(x,d) ((floor(((x)*pow(10,d))+.5))/pow(10,d))
+
+    vector<double> world_frame_x = { roundz(200, 3), roundz(300.00, 3), roundz(914.6791548971, 3), roundz(945.623244928, 3), roundz(976.4068813369, 3) };
+    vector<double> world_frame_y = { roundz(220, 3), roundz(320.00, 3), roundz(1124.88, 3), roundz(1126.162, 3), roundz(1130.728, 3) };
+    tuple<vector<double>, vector<double>> world_frame_coordinates = std::make_tuple(world_frame_x, world_frame_y);
+
+    Telemetry telemetry = Telemetry("42[\"telemetry\",{}]");
+    tuple<vector<double>, vector<double>> car_frame_coordinates = telemetry.get_coordinates_in_car_frame(world_frame_coordinates);
+    vector<double> car_frame_coordinates_x = std::get<0>(car_frame_coordinates);
+    vector<double> car_frame_coordinates_y = std::get<1>(car_frame_coordinates);
+
+    vector<double> actual_x = {
+        roundz(car_frame_coordinates_x[0], 3),
+        roundz(car_frame_coordinates_x[1], 3),
+        roundz(car_frame_coordinates_x[2], 3),
+        roundz(car_frame_coordinates_x[3], 3),
+        roundz(car_frame_coordinates_x[4], 3)
+    };
+
+    vector<double> actual_y = {
+        roundz(car_frame_coordinates_y[0], 3),
+        roundz(car_frame_coordinates_y[1], 3),
+        roundz(car_frame_coordinates_y[2], 3),
+        roundz(car_frame_coordinates_y[3], 3),
+        roundz(car_frame_coordinates_y[4], 3)
+    };
+
+    vector<double> expected_x = { roundz(-141.4213562373, 3), roundz(0.0, 3), roundz(1003.7797951944, 3), roundz(1026.5670183249, 3), roundz(1051.5632430399, 3) };
+    vector<double> expected_y = { roundz(0.0, 3), roundz(0.0, 3), roundz(134.492, 3), roundz(113.518, 3), roundz(94.979, 3) };
+
+    REQUIRE(actual_x == expected_x);
+    REQUIRE(actual_y == expected_y);
+}
