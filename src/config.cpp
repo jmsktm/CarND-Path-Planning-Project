@@ -14,6 +14,8 @@ class ConfigInterface {
         virtual string value(string key1, string key2) = 0;
         virtual int intValue(string key) = 0;
         virtual int intValue(string key1, string key2) = 0;
+        virtual double doubleValue(string key) = 0;
+        virtual double doubleValue(string key1, string key2) = 0;
 };
 
 class Config: public ConfigInterface {
@@ -39,6 +41,14 @@ class Config: public ConfigInterface {
         }
 
         int intValue(string key1, string key2) {
+            return j[key1][key2];
+        }
+
+        double doubleValue(string key) {
+            return j[key];
+        }
+
+        double doubleValue(string key1, string key2) {
             return j[key1][key2];
         }
 };

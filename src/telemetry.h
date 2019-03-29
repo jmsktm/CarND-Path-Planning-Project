@@ -1,14 +1,24 @@
 #ifndef SDC_TELEMETRY_MODULE
 #define SDC_TELEMETRY_MODULE
+#include <tuple>
 #include <string>
+#include <vector>
+
+#include "helpers.h"
+#include "props.h"
+#include "map.h"
 
 #include "json.hpp"
 using nlohmann::json;
 
 using std::string;
+using std::tuple;
+using std::vector;
 
 class Telemetry {
     private:
+        Map map;
+        Props props;
         string str;
         json data;
 
@@ -103,6 +113,106 @@ class Telemetry {
 
         json get_sensor_fusion() {
             return data["sensor_fusion"];
+        }
+
+        tuple<vector<double>, vector<double>> derive_last_two_points_from_current_pos() {
+            double x = get_x();
+            double y = get_y();
+            double yaw = get_yaw();
+
+            double pos2_x = x;
+            double pos2_y = y;
+
+            double pos1_x = x - cos(yaw);
+            double pos1_y = y - sin(yaw);
+
+            vector<double> ptsx;
+            vector<double> ptsy;
+
+            ptsx.push_back(pos1_x);
+            ptsx.push_back(pos2_x);
+
+            ptsy.push_back(pos1_y);
+            ptsy.push_back(pos2_y);
+
+            return std::make_tuple(ptsx, ptsy);
+        }
+
+        tuple<vector<double>, vector<double>> get_last_two_points_from_previous_path() {
+            vector<double> previous_path_x = get_previous_path_x();
+            vector<double> previous_path_y = get_previous_path_y();
+
+            int prev_size = get_previous_path_x().size();
+            
+            double pos2_x = previous_path_x[prev_size - 1];
+            double pos2_y = previous_path_y[prev_size - 1];
+
+            double pos1_x = previous_path_x[prev_size - 2];
+            double pos1_y = previous_path_y[prev_size - 2];
+
+            vector<double> ptsx;
+            vector<double> ptsy;
+
+            ptsx.push_back(pos1_x);
+            ptsx.push_back(pos2_x);
+
+            ptsy.push_back(pos1_y);
+            ptsy.push_back(pos2_y);
+
+            return std::make_tuple(ptsx, ptsy);
+        }
+
+        tuple<vector<double>, vector<double>> get_next_3_evenly_spaced_waypoints(double gap, int target_lane) {
+            double s = get_s();
+            double target_d = props.get_s_by_lane(target_lane);
+
+            vector<double> next_waypoint0 = getXY(s + 1 * gap, target_d, map.get_waypoints_s(), map.get_waypoints_x(), map.get_waypoints_y());
+            vector<double> next_waypoint1 = getXY(s + 2 * gap, target_d, map.get_waypoints_s(), map.get_waypoints_x(), map.get_waypoints_y());
+            vector<double> next_waypoint2 = getXY(s + 3 * gap, target_d, map.get_waypoints_s(), map.get_waypoints_x(), map.get_waypoints_y());
+
+            vector<double> ptsx = { next_waypoint0[0], next_waypoint1[0], next_waypoint2[0] };
+            vector<double> ptsy = { next_waypoint0[1], next_waypoint1[1], next_waypoint2[1] };
+
+            return std::make_tuple(ptsx, ptsy);
+        }
+
+        tuple<vector<double>, vector<double>> get_5_points_for_spline_generation(double gap, int target_lane) {
+            int prev_size = get_previous_path_x().size();
+
+            vector<double> ptsx;
+            vector<double> ptsy;
+
+            // Adding 2 previous points
+            tuple<vector<double>, vector<double>> prev_points_tuple;
+            if (prev_size < 2) {
+                prev_points_tuple = derive_last_two_points_from_current_pos();
+            } else {
+                prev_points_tuple = get_last_two_points_from_previous_path();
+            }
+            vector<double> prev_vector_x = std::get<0>(prev_points_tuple);
+            vector<double> prev_vector_y = std::get<1>(prev_points_tuple);
+
+            ptsx.push_back(prev_vector_x[0]);
+            ptsx.push_back(prev_vector_x[1]);
+
+            ptsy.push_back(prev_vector_y[0]);
+            ptsy.push_back(prev_vector_y[1]);
+
+            // Adding 3 next points
+            tuple<vector<double>, vector<double>> next_points_tuple = get_next_3_evenly_spaced_waypoints(gap, target_lane);
+
+            vector<double> next_vector_x = std::get<0>(next_points_tuple);
+            vector<double> next_vector_y = std::get<1>(next_points_tuple);
+
+            ptsx.push_back(next_vector_x[0]);
+            ptsx.push_back(next_vector_x[1]);
+            ptsx.push_back(next_vector_x[2]);
+
+            ptsy.push_back(next_vector_y[0]);
+            ptsy.push_back(next_vector_y[1]);
+            ptsy.push_back(next_vector_y[2]);
+
+            return std::make_tuple(ptsx, ptsy);
         }
 };
 #endif
