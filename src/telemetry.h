@@ -3,6 +3,7 @@
 #include <tuple>
 #include <string>
 #include <vector>
+#include <math.h> /* atan2 */
 
 #include "helpers.h"
 #include "props.h"
@@ -211,6 +212,35 @@ class Telemetry {
             ptsy.push_back(next_vector_y[0]);
             ptsy.push_back(next_vector_y[1]);
             ptsy.push_back(next_vector_y[2]);
+
+            return std::make_tuple(ptsx, ptsy);
+        }
+
+        tuple<vector<double>, vector<double>> get_coordinates_in_car_frame(tuple<vector<double>, vector<double>> &world_frame_coordinates) {
+            vector<double> world_ptsx = std::get<0>(world_frame_coordinates);
+            vector<double> world_ptsy = std::get<1>(world_frame_coordinates);
+
+            double ref_x = world_ptsx[1];
+            double ref_y = world_ptsy[1];
+
+            double ref_x_prev = world_ptsx[0];
+            double ref_y_prev = world_ptsy[0];
+
+            double ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
+
+            vector<double> ptsx;
+            vector<double> ptsy;
+
+            for (int i = 0; i < world_ptsx.size(); i++) {
+                double shift_x = world_ptsx[i] - ref_x;
+                double shift_y = world_ptsy[i] - ref_y;
+
+                double x = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
+                double y = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
+
+                ptsx.push_back(x);
+                ptsy.push_back(y);
+            }
 
             return std::make_tuple(ptsx, ptsy);
         }
