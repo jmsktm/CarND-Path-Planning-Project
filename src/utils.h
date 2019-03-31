@@ -1,9 +1,12 @@
 #ifndef SDC_UTILS_MODULE
 #define SDC_UTILS_MODULE
 
+#include <iostream>
+#include <string>
 #include <vector>
 #include <cmath>
 
+using std::string;
 using std::vector;
 using std::abs;
 
@@ -29,6 +32,28 @@ class Utils {
                 }
             }
             return true;
+        }
+
+        static void print_vector(string title, vector<double> &v) {
+            std::cout << "***** " << title << " *****" << std::endl;
+            for (int i = 0; i < v.size(); i++) {
+                std::cout << v.at(i) << std::endl;
+            }
+            std::cout << std::endl;
+        }
+
+        static void print_message(string title, string message) {
+            std::cout << "***** " << title << " *****" << std::endl;
+            std::cout << ">>>>> " << message << std::endl;
+            std::cout << std::endl;
+        }
+
+        static void print_coordinates(string title, vector<double> xarr, vector<double> yarr) {
+            std::cout << "***** " << title << " *****" << std::endl;
+            for (int i = 0; i < xarr.size(); i++) {
+                std::cout << "("<< xarr[i] << ", " << yarr[i] << ")"<< std::endl;
+            }
+            std::cout << std::endl;
         }
 };
 #endif

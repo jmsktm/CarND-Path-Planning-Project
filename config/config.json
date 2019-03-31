@@ -8,11 +8,14 @@
         "speed-limit": 49.5,
         "current-road-lanes": 3,
         "opposite-road-lanes": 3,
-        "lane-width-in-meters": 4
+        "lane-width-in-meters": 4,
+        "distance-between-waypoints": 30
     },
     "setup": {
         "cycle-period-in-ms": 20,
         "suggested-points-count": 50,
-        "start-lane": 1
+        "start-lane": 1,
+        "lane-switch-in-meters": 30.0,
+        "refresh-rate-in-ms": 20.0
     }
 }

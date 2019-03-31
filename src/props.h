@@ -40,8 +40,24 @@ class Props {
             return config.intValue("setup", "start-lane");
         }
 
-        double get_s_by_lane(int lane) {
+        double get_d_by_lane(int lane) {
             return (lane + 0.5) * lane_width_in_meters();
+        }
+
+        double lane_switch_in_meters() {
+            return config.doubleValue("setup", "lane-switch-in-meters");
+        }
+
+        double refresh_rate_in_ms() {
+            return config.doubleValue("setup", "refresh-rate-in-ms");
+        }
+
+        double refresh_rate_in_seconds() {
+            return this->refresh_rate_in_ms() / 1000;
+        }
+
+        double distance_between_waypoints_in_meters() {
+            return config.doubleValue("road", "distance-between-waypoints");
         }
 };
 #endif

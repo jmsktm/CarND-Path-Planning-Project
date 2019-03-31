@@ -11,9 +11,13 @@ TEST_CASE("Read properties from config") {
     REQUIRE(props.cycle_period_in_ms() == 20);
     REQUIRE(props.suggested_points_count() == 50);
     REQUIRE(props.start_lane() == 1);
+    REQUIRE(props.lane_switch_in_meters() == 30.0);
+    REQUIRE(props.refresh_rate_in_ms() == 20.0);
+    REQUIRE(props.refresh_rate_in_seconds() == 0.02);
+    REQUIRE(props.distance_between_waypoints_in_meters() == 30.0);
 }
 
-SCENARIO("props / get_s_by_lane()") {
+SCENARIO("props / get_d_by_lane()") {
     Props props = Props();
     double width = props.lane_width_in_meters();
 
@@ -26,6 +30,6 @@ SCENARIO("props / get_s_by_lane()") {
     GIVEN("Given the width of the lane is " << width << " meters")
     WHEN("The car is in lane " << lane)
     THEN("The value for s should equal " << s << " meters") {
-        REQUIRE(props.get_s_by_lane(lane) == s);
+        REQUIRE(props.get_d_by_lane(lane) == s);
     }
 }

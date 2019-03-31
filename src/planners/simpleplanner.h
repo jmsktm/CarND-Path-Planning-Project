@@ -12,13 +12,11 @@
 class SimplePlanner {
     private:
         Map map;
-        Telemetry telemetry;
+        Telemetry& telemetry;
     public:
-        SimplePlanner() {}
         ~SimplePlanner() {}
-        SimplePlanner(Map &map, Telemetry &telemetry) {
+        SimplePlanner(Map &map, Telemetry &t): telemetry(t) {
             this->map = map;
-            this->telemetry = telemetry;
         }
     public:
         /**
