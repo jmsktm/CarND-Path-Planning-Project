@@ -1,3 +1,6 @@
+#ifndef SDC_PROPS_MODULE
+#define SDC_PROPS_MODULE
+
 #include "config.cpp"
 
 class Props {
@@ -41,3 +44,4 @@ class Props {
             return (lane + 0.5) * lane_width_in_meters();
         }
 };
+#endif

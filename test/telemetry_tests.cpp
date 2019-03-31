@@ -2,10 +2,18 @@
 #include "catch.hpp"
 #include "../src/json.hpp"
 #include "../src/telemetry.h"
+#include "../src/utils.h"
 
 #include <tuple>
 
 using std::tuple;
+
+void check_equal(double num1, double num2, int num_digits) {
+    double first = Utils::round(num1, num_digits);
+    double second = Utils::round(num2, num_digits);
+
+    REQUIRE(first == second);
+}
 
 TEST_CASE("telemetry.cpp >> _hasEventMessageData()") {
     REQUIRE_FALSE(Telemetry("")._hasEventMessageData());
@@ -254,4 +262,54 @@ TEST_CASE("Convert from world frame coordinates to car frame coordinates") {
 
     REQUIRE(actual_x == expected_x);
     REQUIRE(actual_y == expected_y);
+}
+
+TEST_CASE("get_ego_vehicle_data()") {
+    json telemetry_data = R"(
+        {
+            "x": 1410.48,
+            "y": 1128.67,
+            "yaw": 30,
+            "speed": 55.92341,
+            "s": 642.3477,
+            "d": 52.12466
+        }
+    )"_json;
+
+    string data_string = "42[\"telemetry\"," + telemetry_data.dump() + "]";
+    Telemetry telemetry = Telemetry(data_string);
+    vector<double> actual = telemetry.get_ego_vehicle_data();
+    vector<double> expected = { -1, 1410.48, 1128.67, 8.626267, -55.254097, 642.3477, 52.12466 };
+    
+    double num_digits = 4; // 4 digits after decimal
+    bool result = Utils::vectors_equal(actual, expected, num_digits);
+    REQUIRE(result == true);
+}
+
+TEST_CASE("ego vehicle should be set on instantiation of Telemetry") {
+    json telemetry_data = R"(
+        {
+            "x": 1410.48,
+            "y": 1128.67,
+            "yaw": 30,
+            "speed": 55.92341,
+            "s": 642.3477,
+            "d": 52.12466
+        }
+    )"_json;
+
+    string data_string = "42[\"telemetry\"," + telemetry_data.dump() + "]";
+    Telemetry telemetry = Telemetry(data_string);
+    Vehicle vehicle = telemetry.get_ego_vehicle();
+
+    int num_digits = 4;
+    check_equal(vehicle.get_id(), -1, num_digits);
+    check_equal(vehicle.get_x(), 1410.48, num_digits);
+    check_equal(vehicle.get_y(), 1128.67, num_digits);
+    check_equal(vehicle.get_vx(), 8.626267, num_digits);
+    check_equal(vehicle.get_vy(), -55.254097, num_digits);
+    check_equal(vehicle.get_s(), 642.3477, num_digits);
+    check_equal(vehicle.get_d(), 52.12466, num_digits);
+    check_equal(vehicle.get_speed(), 55.923409, num_digits);
+    check_equal(vehicle.get_yaw(), -1.415926, num_digits);
 }
