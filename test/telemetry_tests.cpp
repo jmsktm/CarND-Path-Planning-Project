@@ -4,8 +4,10 @@
 #include "../src/telemetry.h"
 #include "../src/utils.h"
 
+#include <map>
 #include <tuple>
 
+using std::map;
 using std::tuple;
 
 void check_equal(double num1, double num2, int num_digits) {
@@ -324,4 +326,52 @@ TEST_CASE("ego vehicle should be set on instantiation of Telemetry") {
     check_equal(vehicle.get_d(), 52.12466, num_digits);
     check_equal(vehicle.get_speed(), 55.923409, num_digits);
     check_equal(vehicle.get_yaw(), -1.415926, num_digits);
+}
+
+TEST_CASE("Telemetry should include neighboring vehicles in a map") {
+    json input = R"(
+        {
+            "x": 1.0,
+            "y": 2.0,
+            "s": 3.0,
+            "d": 4.0,
+            "yaw": 1.23,
+            "speed": 6.0,
+            "previous_path_x": [1.0, 2.0],
+            "previous_path_y": [3.0, 4.0],
+            "end_path_s": 7.0,
+            "end_path_d": 8.0,
+            "sensor_fusion": [
+                [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+                [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6]
+            ]
+        }
+    )"_json;
+    string str = input.dump();
+    Telemetry telemetry = Telemetry("42[\"telemetry\"," + str + "]");
+    map<int, Vehicle> vehicles = telemetry.get_surrounding_vehicles();
+    REQUIRE(vehicles.size() == 2);
+    REQUIRE(vehicles.find(0) != vehicles.end());
+    REQUIRE(vehicles.find(1) != vehicles.end());
+
+    int precision = 4;
+    Vehicle vehicle0 = vehicles[0];
+    check_equal(vehicle0.get_x(), 0.1, precision);
+    check_equal(vehicle0.get_y(), 0.2, precision);
+    check_equal(vehicle0.get_vx(), 0.3, precision);
+    check_equal(vehicle0.get_vy(), 0.4, precision);
+    check_equal(vehicle0.get_s(), 0.5, precision);
+    check_equal(vehicle0.get_d(), 0.6, precision);
+    check_equal(vehicle0.get_speed(), 0.5, precision);
+    check_equal(vehicle0.get_yaw(), 0.927295, precision);
+
+    Vehicle vehicle1 = vehicles[1];
+    check_equal(vehicle1.get_x(), 1.1, precision);
+    check_equal(vehicle1.get_y(), 1.2, precision);
+    check_equal(vehicle1.get_vx(), 1.3, precision);
+    check_equal(vehicle1.get_vy(), 1.4, precision);
+    check_equal(vehicle1.get_s(), 1.5, precision);
+    check_equal(vehicle1.get_d(), 1.6, precision);
+    check_equal(vehicle1.get_speed(), 1.910497, precision);
+    check_equal(vehicle1.get_yaw(), 0.822418, precision);
 }
