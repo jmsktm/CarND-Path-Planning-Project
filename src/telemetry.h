@@ -5,6 +5,7 @@
 #include <vector>
 #include <math.h> /* atan2 */
 #include <map>
+#include <iostream>
 
 #include "helpers.h"
 #include "props.h"
@@ -52,9 +53,24 @@ class Telemetry {
         }
 
         void populate_vehicle_map() {
+            vehicle_map.clear();
             if (this->_hasTelemetryData()) {
                 json sensor_fusion = this->get_sensor_fusion();
+                if (!sensor_fusion.empty()) {
+                    for (int i = 0; i < sensor_fusion.size(); i++) {
+                        vector<double> sensor_data = sensor_fusion[i];
+                        if (!sensor_data.empty()) {
+                            Vehicle vehicle = Vehicle(sensor_data);
+                            int vehicle_id = vehicle.get_id();
+                            vehicle_map[vehicle_id] = vehicle;
+                        }
+                    }
+                }
             }
+        }
+
+        map<int, Vehicle> get_surrounding_vehicles() {
+            return vehicle_map;
         }
 
         Telemetry(string str) {
@@ -64,7 +80,9 @@ class Telemetry {
                 vector<double> ego_vehicle_data = this->get_ego_vehicle_data();
                 if (ego_vehicle_data.size() > 0) {
                     this->ego_vehicle = Vehicle(ego_vehicle_data);
+                    // this->ego_vehicle.print_vehicle_information();
                 }
+                populate_vehicle_map();
             }
         }
 
