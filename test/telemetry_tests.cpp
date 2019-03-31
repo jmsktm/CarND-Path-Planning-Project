@@ -59,7 +59,7 @@ TEST_CASE("Get properties from the (valid) telemetry data") {
             "y": 2.0,
             "s": 3.0,
             "d": 4.0,
-            "yaw": 5.0,
+            "yaw": 1.23,
             "speed": 6.0,
             "previous_path_x": [1.0, 2.0],
             "previous_path_y": [3.0, 4.0],
@@ -73,12 +73,13 @@ TEST_CASE("Get properties from the (valid) telemetry data") {
     )"_json;
     string str = input.dump();
     Telemetry telemetry = Telemetry("42[\"telemetry\"," + str + "]");
-    REQUIRE(telemetry.get_x() == 1.0);
-    REQUIRE(telemetry.get_y() == 2.0);
-    REQUIRE(telemetry.get_s() == 3.0);
-    REQUIRE(telemetry.get_d() == 4.0);
-    REQUIRE(telemetry.get_yaw() == 5.0);
-    REQUIRE(telemetry.get_speed() == 6.0);
+    Vehicle ego_vehicle = telemetry.get_ego_vehicle();
+    REQUIRE(ego_vehicle.get_x() == 1.0);
+    REQUIRE(ego_vehicle.get_y() == 2.0);
+    REQUIRE(ego_vehicle.get_s() == 3.0);
+    REQUIRE(ego_vehicle.get_d() == 4.0);
+    REQUIRE(ego_vehicle.get_yaw() == 1.23);
+    REQUIRE(ego_vehicle.get_speed() == 6.0);
     REQUIRE(telemetry.get_previous_path_x() == R"([1.0, 2.0])"_json);
     REQUIRE(telemetry.get_previous_path_y() == R"([3.0, 4.0])"_json);
     REQUIRE(telemetry.get_end_path_s() == 7.0);
@@ -86,19 +87,26 @@ TEST_CASE("Get properties from the (valid) telemetry data") {
     REQUIRE(telemetry.get_sensor_fusion() == R"([[1, 0.1], [2, 0.2]])"_json);
 }
 
-TEST_CASE("Return last two points when only current point and yaw are known") {
+TEST_CASE("Return last two points when previous path is not available") {
     json data = R"(
         {
-            "x": 100.0,
-            "y": 200.0,
-            "yaw": 45.0
+            "x": 1.0,
+            "y": 2.0,
+            "s": 3.0,
+            "d": 4.0,
+            "yaw": 1.23,
+            "speed": 6.0
         }
     )"_json;
     string data_string = "42[\"telemetry\"," + data.dump() + "]";
     Telemetry telemetry = Telemetry(data_string);
-    REQUIRE(telemetry.get_x() == 100.0);
-    REQUIRE(telemetry.get_y() == 200.0);
-    REQUIRE(telemetry.get_yaw() == 45.0);
+    Vehicle ego_vehicle = telemetry.get_ego_vehicle();
+    REQUIRE(ego_vehicle.get_x() == 1.0);
+    REQUIRE(ego_vehicle.get_y() == 2.0);
+    REQUIRE(ego_vehicle.get_s() == 3.0);
+    REQUIRE(ego_vehicle.get_d() == 4.0);
+    REQUIRE(ego_vehicle.get_yaw() == 1.23);
+    REQUIRE(ego_vehicle.get_speed() == 6.0);
 
     tuple<vector<double>, vector<double>> last_two_points = telemetry.derive_last_two_points_from_current_pos();
     vector<double> ptsx = std::get<0>(last_two_points);
@@ -110,8 +118,8 @@ TEST_CASE("Return last two points when only current point and yaw are known") {
     vector<double> actual_ptsx = { roundz(ptsx[0], 3), roundz(ptsx[1], 3)};
     vector<double> actual_ptsy = { roundz(ptsy[0], 3), roundz(ptsy[1], 3)};
 
-    vector<double> expected_ptsx = { roundz(99.4746780112, 3), roundz(100.00, 3) };
-    vector<double> expected_ptsy = { roundz(199.149096475, 3), roundz(200.00, 3) };
+    vector<double> expected_ptsx = { roundz(0.666, 3), roundz(1.00, 3) };
+    vector<double> expected_ptsy = { roundz(1.058, 3), roundz(2.00, 3) };
 
     REQUIRE(actual_ptsx == expected_ptsx);
     REQUIRE(actual_ptsy == expected_ptsy);
@@ -152,7 +160,8 @@ TEST_CASE("Get the next 3 evenly spaced waypoints as tuples of x and y coordinat
     )"_json;
     string data_string = "42[\"telemetry\"," + data.dump() + "]";
     Telemetry telemetry = Telemetry(data_string);
-    REQUIRE(telemetry.get_s() == 100.0);
+    Vehicle ego_vehicle = telemetry.get_ego_vehicle();
+    REQUIRE(ego_vehicle.get_s() == 100.0);
 
     tuple<vector<double>, vector<double>> last_3_waypoints = telemetry.get_next_3_evenly_spaced_waypoints(30, 2);
     vector<double> ptsx = std::get<0>(last_3_waypoints);
@@ -176,8 +185,10 @@ TEST_CASE("Get the 5 points for spline generation when less than 2 previous path
         {
             "x": 100.0,
             "y": 200.0,
-            "yaw": 45.0,
+            "yaw": 30.0,
+            "speed": 123.0,
             "s": 100.0,
+            "d": 4.0,
             "previous_path_x": [],
             "previous_path_y": []
         }
@@ -191,11 +202,12 @@ TEST_CASE("Get the 5 points for spline generation when less than 2 previous path
     vector<double> ptsx = std::get<0>(five_points);
     vector<double> ptsy = std::get<1>(five_points);
 
-    vector<double> actual_ptsx = { roundz(ptsx[0], 3), roundz(ptsx[1], 3), roundz(ptsx[2], 3), roundz(ptsx[3], 3), roundz(ptsx[4], 3) };
-    vector<double> actual_ptsy = { roundz(ptsy[0], 3), roundz(ptsy[1], 3), roundz(ptsy[2], 3), roundz(ptsy[3], 3), roundz(ptsy[4], 3) };
+    int precision = 4;
+    vector<double> actual_ptsx = { roundz(ptsx[0], precision), roundz(ptsx[1], precision), roundz(ptsx[2], precision), roundz(ptsx[3], precision), roundz(ptsx[4], precision) };
+    vector<double> actual_ptsy = { roundz(ptsy[0], precision), roundz(ptsy[1], precision), roundz(ptsy[2], precision), roundz(ptsy[3], precision), roundz(ptsy[4], precision) };
 
-    vector<double> expected_ptsx = { roundz(99.4746780112, 3), roundz(100.00, 3), roundz(914.6791548971, 3), roundz(945.623244928, 3), roundz(976.4068813369, 3) };
-    vector<double> expected_ptsy = { roundz(199.149096475, 3), roundz(200.00, 3), roundz(1124.88, 3), roundz(1126.162, 3), roundz(1130.728, 3) };
+    vector<double> expected_ptsx = { roundz(99.8457, precision), roundz(100.00, precision), roundz(914.6791548971, precision), roundz(945.623244928, precision), roundz(976.4068813369, precision) };
+    vector<double> expected_ptsy = { roundz(200.988, precision), roundz(200.00, precision), roundz(1124.8797, precision), roundz(1126.1618, precision), roundz(1130.7282, precision) };
 
     REQUIRE(actual_ptsx == expected_ptsx);
     REQUIRE(actual_ptsy == expected_ptsy);

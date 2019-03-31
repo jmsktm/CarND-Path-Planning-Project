@@ -18,7 +18,9 @@ class Vehicle {
         double s;
         double d;
 
-        double ref_speed;
+        double speed;
+        double yaw;
+
         map<int, Vehicle> other_vehicles;
 
     public:
@@ -34,6 +36,8 @@ class Vehicle {
             if (this->vx == 0) {
                 this->vx = 0.00001;
             }
+            this->speed = sqrt(this->vx * this->vx + this->vy * this->vy);
+            this->yaw = atan(this->vy / this->vx);
         }
 
         Vehicle() {}
@@ -68,11 +72,11 @@ class Vehicle {
         }
 
         double get_speed() {
-            return sqrt(this->vx * this->vx + this->vy * this->vy);
+            return this->speed;
         }
 
         double get_yaw() {
-            return atan(this->vy / this->vx);
+            return this->yaw;
         }
 };
 #endif

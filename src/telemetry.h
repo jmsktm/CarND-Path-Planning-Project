@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <math.h> /* atan2 */
+#include <map>
 
 #include "helpers.h"
 #include "props.h"
@@ -16,13 +17,15 @@ using nlohmann::json;
 using std::string;
 using std::tuple;
 using std::vector;
+using std::map;
 
 class Telemetry {
     private:
-        Map map;
+        Map geo_map;
         Props props;
         string str;
         json data;
+        map<int, Vehicle> vehicle_map;
 
         Vehicle ego_vehicle;
     public:
@@ -46,6 +49,12 @@ class Telemetry {
                 return { vehicle_id, vehicle_x, vehicle_y, vehicle_vx, vehicle_vy, vehicle_s, vehicle_d };
             }
             return {};
+        }
+
+        void populate_vehicle_map() {
+            if (this->_hasTelemetryData()) {
+                json sensor_fusion = this->get_sensor_fusion();
+            }
         }
 
         Telemetry(string str) {
@@ -174,9 +183,9 @@ class Telemetry {
             double s = this->get_ego_vehicle().get_s();
             double target_d = props.get_s_by_lane(target_lane);
 
-            vector<double> next_waypoint0 = getXY(s + 1 * gap, target_d, map.get_waypoints_s(), map.get_waypoints_x(), map.get_waypoints_y());
-            vector<double> next_waypoint1 = getXY(s + 2 * gap, target_d, map.get_waypoints_s(), map.get_waypoints_x(), map.get_waypoints_y());
-            vector<double> next_waypoint2 = getXY(s + 3 * gap, target_d, map.get_waypoints_s(), map.get_waypoints_x(), map.get_waypoints_y());
+            vector<double> next_waypoint0 = getXY(s + 1 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
+            vector<double> next_waypoint1 = getXY(s + 2 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
+            vector<double> next_waypoint2 = getXY(s + 3 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
 
             vector<double> ptsx = { next_waypoint0[0], next_waypoint1[0], next_waypoint2[0] };
             vector<double> ptsy = { next_waypoint0[1], next_waypoint1[1], next_waypoint2[1] };
