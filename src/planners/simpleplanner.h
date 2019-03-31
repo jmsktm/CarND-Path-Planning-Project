@@ -29,7 +29,7 @@ class SimplePlanner {
             json msgJson;
             vector<double> next_x_vals;
             vector<double> next_y_vals;
-            double s = this->telemetry.get_s();
+            double s = this->telemetry.get_ego_vehicle().get_s();
 
             double dist_inc = 0.5;
             double next_d = 6;

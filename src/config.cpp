@@ -1,3 +1,6 @@
+#ifndef SDC_CONFIG_MODULE
+#define SDC_CONFIG_MODULE
+
 #include <fstream>
 #include <string>
 #include "json.hpp"
@@ -52,3 +55,4 @@ class Config: public ConfigInterface {
             return j[key1][key2];
         }
 };
+#endif

@@ -8,6 +8,7 @@
 #include "helpers.h"
 #include "props.h"
 #include "map.h"
+#include "vehicle.h"
 
 #include "json.hpp"
 using nlohmann::json;
@@ -23,13 +24,43 @@ class Telemetry {
         string str;
         json data;
 
+        Vehicle ego_vehicle;
     public:
         Telemetry() {}
         ~Telemetry() {}
 
+        vector<double> get_ego_vehicle_data() {
+            if (this->_hasEventMessageData()) {
+                json telemetry_data = this->_getTelemetryData();
+                double vehicle_id = -1;
+                double vehicle_x = telemetry_data.value("x", 0.0);
+                double vehicle_y = telemetry_data.value("y", 0.0);
+                double vehicle_yaw = telemetry_data.value("yaw", 0.0);
+                double vehicle_speed = telemetry_data.value("speed", 0.0);
+                double vehicle_s = telemetry_data.value("s", 0.0);
+                double vehicle_d = telemetry_data.value("d", 0.0);
+
+                double vehicle_vx = vehicle_speed * cos(vehicle_yaw);
+                double vehicle_vy = vehicle_speed * sin(vehicle_yaw);
+
+                return { vehicle_id, vehicle_x, vehicle_y, vehicle_vx, vehicle_vy, vehicle_s, vehicle_d };
+            }
+            return {};
+        }
+
         Telemetry(string str) {
             this->str = str;
-            data = this->_getTelemetryData();
+            if (this->_hasTelemetryData()) {
+                data = this->_getTelemetryData();
+                vector<double> ego_vehicle_data = this->get_ego_vehicle_data();
+                if (ego_vehicle_data.size() > 0) {
+                    this->ego_vehicle = Vehicle(ego_vehicle_data);
+                }
+            }
+        }
+
+        Vehicle get_ego_vehicle() {
+            return this->ego_vehicle;
         }
 
         bool _hasEventMessageData() {
@@ -72,30 +103,6 @@ class Telemetry {
             return j[1];
         }
 
-        double get_x() {
-            return data["x"];
-        }
-
-        double get_y() {
-            return data["y"];
-        }
-
-        double get_s() {
-            return data["s"];
-        }
-
-        double get_d() {
-            return data["d"];
-        }
-
-        double get_yaw() {
-            return data["yaw"];
-        }
-
-        double get_speed() {
-            return data["speed"];
-        }
-
         json get_previous_path_x() {
             return data["previous_path_x"];
         }
@@ -117,9 +124,9 @@ class Telemetry {
         }
 
         tuple<vector<double>, vector<double>> derive_last_two_points_from_current_pos() {
-            double x = get_x();
-            double y = get_y();
-            double yaw = get_yaw();
+            double x = this->get_ego_vehicle().get_x();
+            double y = this->get_ego_vehicle().get_y();
+            double yaw = this->get_ego_vehicle().get_yaw();
 
             double pos2_x = x;
             double pos2_y = y;
@@ -164,7 +171,7 @@ class Telemetry {
         }
 
         tuple<vector<double>, vector<double>> get_next_3_evenly_spaced_waypoints(double gap, int target_lane) {
-            double s = get_s();
+            double s = this->get_ego_vehicle().get_s();
             double target_d = props.get_s_by_lane(target_lane);
 
             vector<double> next_waypoint0 = getXY(s + 1 * gap, target_d, map.get_waypoints_s(), map.get_waypoints_x(), map.get_waypoints_y());
