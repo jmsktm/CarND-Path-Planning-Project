@@ -10,7 +10,9 @@
 #include "telemetry.h"
 #include "waypoint.h"
 #include "map.h"
-#include "planners/simpleplanner.h"
+#include "utils.h"
+#include "planners/smoothplanner.h"
+//#include "planners/simpleplanner.h"
 
 using nlohmann::json;
 using std::string;
@@ -19,17 +21,20 @@ using std::vector;
 int main() {
   uWS::Hub h;
   Map map;
+  Vehicle ego_vehicle;
 
-  h.onMessage([&map]
+  h.onMessage([&map, &ego_vehicle]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     string str(data);
-    Telemetry telemetry = Telemetry(str);
-    SimplePlanner planner = SimplePlanner(map, telemetry);
+    Utils::print_message("Input data", data);
+    Telemetry telemetry = Telemetry(str, ego_vehicle);
+    SmoothPlanner planner = SmoothPlanner(map, telemetry);
 
     if (telemetry._hasTelemetryData()) {
       json msgJson = planner.getRoute();
       auto msg = "42[\"control\","+ msgJson.dump()+"]";
+      Utils::print_message("Output data", msg);
       ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
     } else {
       std::string msg = "42[\"manual\",{}]";

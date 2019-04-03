@@ -1,16 +1,22 @@
 #ifndef SDC_TELEMETRY_MODULE
 #define SDC_TELEMETRY_MODULE
+
+#define MPH_TO_METERS_PER_SECOND 0.44703888888
+
 #include <tuple>
 #include <string>
 #include <vector>
 #include <math.h> /* atan2 */
 #include <map>
 #include <iostream>
+#include <algorithm> // std::min
 
+#include "spline.h"
 #include "helpers.h"
 #include "props.h"
 #include "map.h"
 #include "vehicle.h"
+#include "utils.h"
 
 #include "json.hpp"
 using nlohmann::json;
@@ -20,6 +26,8 @@ using std::tuple;
 using std::vector;
 using std::map;
 
+static const double ACCELERATION = 0.224;
+
 class Telemetry {
     private:
         Map geo_map;
@@ -28,9 +36,8 @@ class Telemetry {
         json data;
         map<int, Vehicle> vehicle_map;
 
-        Vehicle ego_vehicle;
+        Vehicle& ego_vehicle;
     public:
-        Telemetry() {}
         ~Telemetry() {}
 
         vector<double> get_ego_vehicle_data() {
@@ -60,8 +67,9 @@ class Telemetry {
                     for (int i = 0; i < sensor_fusion.size(); i++) {
                         vector<double> sensor_data = sensor_fusion[i];
                         if (!sensor_data.empty()) {
-                            Vehicle vehicle = Vehicle(sensor_data);
-                            int vehicle_id = vehicle.get_id();
+                            int vehicle_id = (int)sensor_data[0];
+                            Vehicle vehicle = Vehicle(vehicle_id);
+                            vehicle.update_sensor_data(sensor_data);
                             vehicle_map[vehicle_id] = vehicle;
                         }
                     }
@@ -73,16 +81,16 @@ class Telemetry {
             return vehicle_map;
         }
 
-        Telemetry(string str) {
+        Telemetry(string str, Vehicle &vehicle): ego_vehicle(vehicle) {
             this->str = str;
             if (this->_hasTelemetryData()) {
                 data = this->_getTelemetryData();
                 vector<double> ego_vehicle_data = this->get_ego_vehicle_data();
                 if (ego_vehicle_data.size() > 0) {
-                    this->ego_vehicle = Vehicle(ego_vehicle_data);
-                    // this->ego_vehicle.print_vehicle_information();
+                    this->ego_vehicle.update_sensor_data(ego_vehicle_data);
+                    this->ego_vehicle.accelerate();
                 }
-                populate_vehicle_map();
+                // populate_vehicle_map();
             }
         }
 
@@ -199,7 +207,7 @@ class Telemetry {
 
         tuple<vector<double>, vector<double>> get_next_3_evenly_spaced_waypoints(double gap, int target_lane) {
             double s = this->get_ego_vehicle().get_s();
-            double target_d = props.get_s_by_lane(target_lane);
+            double target_d = props.get_d_by_lane(target_lane);
 
             vector<double> next_waypoint0 = getXY(s + 1 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
             vector<double> next_waypoint1 = getXY(s + 2 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
@@ -277,6 +285,111 @@ class Telemetry {
             }
 
             return std::make_tuple(ptsx, ptsy);
+        }
+
+        json get_smooth_curve() {
+            this->ego_vehicle.print_vehicle_information();
+            // Adding the leftover points from the previously generated path to the next path
+            vector<double> next_x_vals;
+            vector<double> next_y_vals;
+            for (int i = 0; i < this->get_previous_path_x().size(); i++) {
+                next_x_vals.push_back(this->get_previous_path_x()[i]);
+                next_y_vals.push_back(this->get_previous_path_y()[i]);
+            }
+            Utils::print_message("Left from earlier: ", std::to_string(this->get_previous_path_x().size()));
+
+            // Fetching 5 points (in car frame) to draw spline for the path
+            int lane = this->ego_vehicle.get_lane();
+            double gap = props.distance_between_waypoints_in_meters();
+
+            tuple<vector<double>, vector<double>> five_route_coordinates_in_world_frame = this->get_5_points_for_spline_generation(gap, lane);
+            vector<double> world_x= std::get<0>(five_route_coordinates_in_world_frame);
+            vector<double> world_y = std::get<1>(five_route_coordinates_in_world_frame);
+            Utils::print_coordinates("World coordinates", world_x, world_y);
+            
+            tuple<vector<double>, vector<double>> five_route_coordinates_in_car_frame = this->get_coordinates_in_car_frame(five_route_coordinates_in_world_frame);
+            vector<double> ptsx = std::get<0>(five_route_coordinates_in_car_frame);
+            vector<double> ptsy = std::get<1>(five_route_coordinates_in_car_frame);
+            Utils::print_coordinates("Car coordinates", ptsx, ptsy);
+
+            // Generating the spline over the 5 points from above
+            tk::spline s;
+            s.set_points(ptsx, ptsy);
+
+            // Adding points to the next path to compensate the points travelled since last cycle.
+            double target_x = props.lane_switch_in_meters();
+            double target_y = s(target_x);
+            double target_dist = sqrt(target_x * target_x + target_y * target_y);
+            Utils::print_message("target_x", std::to_string(target_x));
+            Utils::print_message("target_y", std::to_string(target_y));
+            Utils::print_message("target_dist", std::to_string(target_dist));
+
+            int total_points_in_route = props.suggested_points_count();
+            int remaining_points = this->get_previous_path_x().size();
+            int points_to_add = total_points_in_route - remaining_points;
+            Utils::print_message("total points in route", std::to_string(total_points_in_route));
+            Utils::print_message("remaining points", std::to_string(remaining_points));
+            Utils::print_message("points to add", std::to_string(points_to_add));
+
+            double ref_vel = this->ego_vehicle.get_ref_speed();
+            double distance_in_meters_between_points = props.refresh_rate_in_seconds() * ref_vel * MPH_TO_METERS_PER_SECOND;
+            double N = target_dist / distance_in_meters_between_points;
+            Utils::print_message("refresh rate in seconds", std::to_string(props.refresh_rate_in_seconds()));
+            Utils::print_message("reference velocity", std::to_string(ref_vel));
+            Utils::print_message("distance in meters per refresh", std::to_string(distance_in_meters_between_points));
+            Utils::print_message("N", std::to_string(N));
+
+            double x_add_on = 0.0;
+            /*
+            double ref_yaw = this->ego_vehicle.get_yaw();
+            */
+            /* Remote this code - start */
+            double ref_x_temp = world_x[1];
+            double ref_y_temp = world_y[1];
+
+            double ref_x_prev_temp = world_x[0];
+            double ref_y_prev_temp = world_y[0];
+
+            double ref_yaw = atan2(ref_y_temp - ref_y_prev_temp, ref_x_temp - ref_x_prev_temp);
+            /* Remote this code - end */
+
+            Utils::print_message("ref yaw", std::to_string(ref_yaw));
+            for (int i = 1; i <= points_to_add; i++) {
+                double x_point = x_add_on + distance_in_meters_between_points;
+                double y_point = s(x_point);
+                // Utils::print_message("x_add_on", std::to_string(x_add_on));
+                // Utils::print_message("x_point", std::to_string(x_point));
+                // Utils::print_message("y_point", std::to_string(y_point));
+
+                x_add_on = x_point;
+
+                double x_ref = x_point;
+                double y_ref = y_point;
+                // Utils::print_message("x_ref", std::to_string(x_ref));
+                // Utils::print_message("y_ref", std::to_string(y_ref));
+
+                // rotate back to normal after rotating it earlier
+                x_point = (x_ref * cos(ref_yaw)) - (y_ref * sin(ref_yaw));
+                y_point = (x_ref * sin(ref_yaw)) + (y_ref * cos(ref_yaw));
+                // Utils::print_message("x_point", std::to_string(x_point));
+                // Utils::print_message("y_point", std::to_string(y_point));
+
+                x_point += world_x[1];
+                y_point += world_y[1];
+                // Utils::print_message("x_point", std::to_string(x_point));
+                // Utils::print_message("y_point", std::to_string(y_point));
+
+                next_x_vals.push_back(x_point);
+                next_y_vals.push_back(y_point);
+            }
+
+            Utils::print_coordinates("Next coordinates", next_x_vals, next_y_vals);
+
+            json msgJson;
+            msgJson["next_x"] = next_x_vals;
+            msgJson["next_y"] = next_y_vals;
+
+            return msgJson;
         }
 };
 #endif
