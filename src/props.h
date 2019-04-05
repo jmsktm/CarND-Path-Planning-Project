@@ -16,12 +16,12 @@ class Props {
             return config.doubleValue("road", "speed-limit");
         }
 
-        double current_road_lanes() {
-            return config.doubleValue("road", "current-road-lanes");
+        int current_road_lanes() {
+            return config.intValue("road", "current-road-lanes");
         }
 
-        double opposite_road_lanes() {
-            return config.doubleValue("road", "opposite-road-lanes");
+        int opposite_road_lanes() {
+            return config.intValue("road", "opposite-road-lanes");
         }
 
         double lane_width_in_meters() {

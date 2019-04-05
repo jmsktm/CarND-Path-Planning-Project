@@ -35,25 +35,23 @@ class Utils {
         }
 
         static void print_vector(string title, vector<double> &v) {
-            std::cout << "***** " << title << " *****" << std::endl;
             for (int i = 0; i < v.size(); i++) {
                 std::cout << v.at(i) << std::endl;
             }
-            std::cout << std::endl;
         }
 
         static void print_message(string title, string message) {
-            std::cout << "***** " << title << " *****" << std::endl;
-            std::cout << ">>>>> " << message << std::endl;
-            std::cout << std::endl;
+            std::cout << ">>>>> " << title << " : " << message << std::endl;
+        }
+
+        static void print_message(string message) {
+            std::cout << message << std::endl;
         }
 
         static void print_coordinates(string title, vector<double> xarr, vector<double> yarr) {
-            std::cout << "***** " << title << " *****" << std::endl;
             for (int i = 0; i < xarr.size(); i++) {
                 std::cout << "("<< xarr[i] << ", " << yarr[i] << ")"<< std::endl;
             }
-            std::cout << std::endl;
         }
 };
 #endif

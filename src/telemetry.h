@@ -88,9 +88,8 @@ class Telemetry {
                 vector<double> ego_vehicle_data = this->get_ego_vehicle_data();
                 if (ego_vehicle_data.size() > 0) {
                     this->ego_vehicle.update_sensor_data(ego_vehicle_data);
-                    this->ego_vehicle.accelerate();
                 }
-                // populate_vehicle_map();
+                populate_vehicle_map();
             }
         }
 
@@ -100,8 +99,7 @@ class Telemetry {
 
         bool _hasEventMessageData() {
             // "42" at the start of the message means there's a websocket message event.
-            // The 4 signifies a websocket message
-            // The 2 signifies a websocket event
+            // The 4 signifies a websocket message. The 2 signifies a websocket event
             if (this->str.size() > 2 && this->str[0] == '4' && this->str[1] == '2') {
                 auto found_null = str.find("null");
                 auto b1 = str.find_first_of("[");
@@ -209,9 +207,9 @@ class Telemetry {
             double s = this->get_ego_vehicle().get_s();
             double target_d = props.get_d_by_lane(target_lane);
 
-            vector<double> next_waypoint0 = getXY(s + 1 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
-            vector<double> next_waypoint1 = getXY(s + 2 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
-            vector<double> next_waypoint2 = getXY(s + 3 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
+            vector<double> next_waypoint0 = getXY(s + 2 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
+            vector<double> next_waypoint1 = getXY(s + 3 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
+            vector<double> next_waypoint2 = getXY(s + 4 * gap, target_d, geo_map.get_waypoints_s(), geo_map.get_waypoints_x(), geo_map.get_waypoints_y());
 
             vector<double> ptsx = { next_waypoint0[0], next_waypoint1[0], next_waypoint2[0] };
             vector<double> ptsy = { next_waypoint0[1], next_waypoint1[1], next_waypoint2[1] };
@@ -287,8 +285,114 @@ class Telemetry {
             return std::make_tuple(ptsx, ptsy);
         }
 
+        /* Move the logics related to cost function and lane change to a separate file - start */
+        int cost_left_lane() {
+            int cost = 0;
+            if (ego_vehicle.get_lane() == 0) {
+                return 500;
+            }
+            for (int i = 0; i < this->vehicle_map.size(); i++) {
+                Vehicle other_vehicle = vehicle_map[i];
+                if (ego_vehicle.immediate_right_of(other_vehicle)) {
+                    double displacement = (int)ego_vehicle.abs_distance(other_vehicle);
+                    if (displacement < 50.0) {
+                        int current_cost = (int)(50 - displacement);
+                        if (current_cost > cost) {
+                            cost = current_cost;
+                        }
+                    }
+                }
+            }
+            return 50 + cost; // 50 is the cost of performing lane change
+        }
+
+        int cost_right_lane() {
+            int cost = 0;
+            int rightmost_lane_index = props.current_road_lanes() - 1;
+            if (ego_vehicle.get_lane() == rightmost_lane_index) {
+                return 500;
+            }
+            for (int i = 0; i < this->vehicle_map.size(); i++) {
+                Vehicle other_vehicle = vehicle_map[i];
+                if (ego_vehicle.immediate_left_of(other_vehicle)) {
+                    double displacement = (int)ego_vehicle.abs_distance(other_vehicle);
+                    if (displacement < 50.0) {
+                        int current_cost = (int)(50 - displacement);
+                        if (current_cost > cost) {
+                            cost = current_cost;
+                        }
+                    }
+                }
+            }
+            return 50 + cost; // 50 is the cost of performing lane change
+        }
+
+        int cost_current_lane() {
+            int cost = 0;
+            for (int i = 0; i < this->vehicle_map.size(); i++) {
+                Vehicle other_vehicle = vehicle_map[i];
+                bool same_lane = ego_vehicle.same_lane_as(other_vehicle);
+                bool behind = ego_vehicle.behind(other_vehicle);
+                if (same_lane && behind) {
+                    double distance = other_vehicle.get_s() - ego_vehicle.get_s();
+                    if (distance > 0 && distance < 100) {
+                        int current_cost = 100 - (int)distance;
+                        if (current_cost > cost) {
+                            cost = current_cost;
+                        }
+                    }
+                }
+            }
+
+            return cost;
+        }
+
+        void process_cost_function() {
+            int cost_lane_keeping = this->cost_current_lane();
+            int cost_lane_change_left = this->cost_left_lane();
+            int cost_lane_change_right = this->cost_right_lane();
+            string message = std::to_string(cost_lane_change_left) + " <-- " + std::to_string(cost_lane_keeping) + " --> " + std::to_string(cost_lane_change_right);
+            Utils::print_message(message);
+
+            int LANE_CHANGE_MAX_COST = 80;
+            if (cost_lane_keeping > LANE_CHANGE_MAX_COST &&
+                cost_lane_change_left > LANE_CHANGE_MAX_COST &&
+                cost_lane_change_right > LANE_CHANGE_MAX_COST) {
+                    Utils::print_message("SLOW DOWN");
+                    ego_vehicle.slow_down();
+            } else {
+                if (cost_lane_change_left < cost_lane_keeping && cost_lane_change_left < cost_lane_change_right) {
+                    Utils::print_message("<<<<<");
+                    ego_vehicle.prepare_lane_change_left();
+                } else if (cost_lane_change_right < cost_lane_keeping && cost_lane_change_right < cost_lane_change_left) {
+                    Utils::print_message(">>>>>");
+                    ego_vehicle.prepare_lane_change_right();
+                } else {
+                    double vehicle_ahead_distance;
+                    for (int i = 0; i < this->vehicle_map.size(); i++) {
+                        Vehicle other_vehicle = vehicle_map[i];
+                        if (ego_vehicle.same_lane_as(other_vehicle) &&
+                            ego_vehicle.behind(other_vehicle)) {
+                                double current_distance = ego_vehicle.abs_distance(other_vehicle);
+                                if (current_distance < vehicle_ahead_distance) {
+                                    vehicle_ahead_distance = current_distance;
+                                }
+                            }
+                    }
+                    if (vehicle_ahead_distance > 50) {
+                        Utils::print_message("SLOW DOWN");
+                        ego_vehicle.slow_down();
+                    } else {
+                        Utils::print_message("ACCELERATE");
+                        ego_vehicle.accelerate();
+                    }
+                }
+            }
+        }
+        /* Move the logics related to cost function and lane change to a separate file - end */
+
         json get_smooth_curve() {
-            this->ego_vehicle.print_vehicle_information();
+            // this->ego_vehicle.print_vehicle_information();
             // Adding the leftover points from the previously generated path to the next path
             vector<double> next_x_vals;
             vector<double> next_y_vals;
@@ -296,21 +400,19 @@ class Telemetry {
                 next_x_vals.push_back(this->get_previous_path_x()[i]);
                 next_y_vals.push_back(this->get_previous_path_y()[i]);
             }
-            Utils::print_message("Left from earlier: ", std::to_string(this->get_previous_path_x().size()));
 
             // Fetching 5 points (in car frame) to draw spline for the path
-            int lane = this->ego_vehicle.get_lane();
+            this->process_cost_function();
+            int lane = this->ego_vehicle.get_ref_lane();
             double gap = props.distance_between_waypoints_in_meters();
 
             tuple<vector<double>, vector<double>> five_route_coordinates_in_world_frame = this->get_5_points_for_spline_generation(gap, lane);
             vector<double> world_x= std::get<0>(five_route_coordinates_in_world_frame);
             vector<double> world_y = std::get<1>(five_route_coordinates_in_world_frame);
-            Utils::print_coordinates("World coordinates", world_x, world_y);
             
             tuple<vector<double>, vector<double>> five_route_coordinates_in_car_frame = this->get_coordinates_in_car_frame(five_route_coordinates_in_world_frame);
             vector<double> ptsx = std::get<0>(five_route_coordinates_in_car_frame);
             vector<double> ptsy = std::get<1>(five_route_coordinates_in_car_frame);
-            Utils::print_coordinates("Car coordinates", ptsx, ptsy);
 
             // Generating the spline over the 5 points from above
             tk::spline s;
@@ -320,24 +422,14 @@ class Telemetry {
             double target_x = props.lane_switch_in_meters();
             double target_y = s(target_x);
             double target_dist = sqrt(target_x * target_x + target_y * target_y);
-            Utils::print_message("target_x", std::to_string(target_x));
-            Utils::print_message("target_y", std::to_string(target_y));
-            Utils::print_message("target_dist", std::to_string(target_dist));
 
             int total_points_in_route = props.suggested_points_count();
             int remaining_points = this->get_previous_path_x().size();
             int points_to_add = total_points_in_route - remaining_points;
-            Utils::print_message("total points in route", std::to_string(total_points_in_route));
-            Utils::print_message("remaining points", std::to_string(remaining_points));
-            Utils::print_message("points to add", std::to_string(points_to_add));
 
             double ref_vel = this->ego_vehicle.get_ref_speed();
             double distance_in_meters_between_points = props.refresh_rate_in_seconds() * ref_vel * MPH_TO_METERS_PER_SECOND;
             double N = target_dist / distance_in_meters_between_points;
-            Utils::print_message("refresh rate in seconds", std::to_string(props.refresh_rate_in_seconds()));
-            Utils::print_message("reference velocity", std::to_string(ref_vel));
-            Utils::print_message("distance in meters per refresh", std::to_string(distance_in_meters_between_points));
-            Utils::print_message("N", std::to_string(N));
 
             double x_add_on = 0.0;
             /*
@@ -353,37 +445,24 @@ class Telemetry {
             double ref_yaw = atan2(ref_y_temp - ref_y_prev_temp, ref_x_temp - ref_x_prev_temp);
             /* Remote this code - end */
 
-            Utils::print_message("ref yaw", std::to_string(ref_yaw));
             for (int i = 1; i <= points_to_add; i++) {
                 double x_point = x_add_on + distance_in_meters_between_points;
                 double y_point = s(x_point);
-                // Utils::print_message("x_add_on", std::to_string(x_add_on));
-                // Utils::print_message("x_point", std::to_string(x_point));
-                // Utils::print_message("y_point", std::to_string(y_point));
 
                 x_add_on = x_point;
-
                 double x_ref = x_point;
                 double y_ref = y_point;
-                // Utils::print_message("x_ref", std::to_string(x_ref));
-                // Utils::print_message("y_ref", std::to_string(y_ref));
 
                 // rotate back to normal after rotating it earlier
                 x_point = (x_ref * cos(ref_yaw)) - (y_ref * sin(ref_yaw));
                 y_point = (x_ref * sin(ref_yaw)) + (y_ref * cos(ref_yaw));
-                // Utils::print_message("x_point", std::to_string(x_point));
-                // Utils::print_message("y_point", std::to_string(y_point));
 
                 x_point += world_x[1];
                 y_point += world_y[1];
-                // Utils::print_message("x_point", std::to_string(x_point));
-                // Utils::print_message("y_point", std::to_string(y_point));
 
                 next_x_vals.push_back(x_point);
                 next_y_vals.push_back(y_point);
             }
-
-            Utils::print_coordinates("Next coordinates", next_x_vals, next_y_vals);
 
             json msgJson;
             msgJson["next_x"] = next_x_vals;
