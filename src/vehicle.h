@@ -30,7 +30,7 @@ class Vehicle {
         double speed;
         double yaw;
         
-        double ref_speed = 20.0;
+        double ref_speed = 0.0;
         double ref_lane = 1; // TODO: Unhardcode this!
         
         int uid = rand() % 1000;
