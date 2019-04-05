@@ -27,14 +27,12 @@ int main() {
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     string str(data);
-    Utils::print_message("Input data", data);
     Telemetry telemetry = Telemetry(str, ego_vehicle);
     SmoothPlanner planner = SmoothPlanner(map, telemetry);
 
     if (telemetry._hasTelemetryData()) {
       json msgJson = planner.getRoute();
       auto msg = "42[\"control\","+ msgJson.dump()+"]";
-      Utils::print_message("Output data", msg);
       ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
     } else {
       std::string msg = "42[\"manual\",{}]";
