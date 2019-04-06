@@ -27,6 +27,7 @@ using std::vector;
 using std::map;
 
 static const double ACCELERATION = 0.224;
+static const double COLLISION_COST = 500;
 
 class Telemetry {
     private:
@@ -289,16 +290,20 @@ class Telemetry {
         int cost_left_lane() {
             int cost = 0;
             if (ego_vehicle.get_lane() == 0) {
-                return 500;
+                return COLLISION_COST;
             }
             for (int i = 0; i < this->vehicle_map.size(); i++) {
                 Vehicle other_vehicle = vehicle_map[i];
                 if (ego_vehicle.immediate_right_of(other_vehicle)) {
-                    double displacement = (int)ego_vehicle.abs_distance(other_vehicle);
-                    if (displacement < 50.0) {
-                        int current_cost = (int)(50 - displacement);
-                        if (current_cost > cost) {
-                            cost = current_cost;
+                    double closest_distance = ego_vehicle.closest_distance_during_lane_change(other_vehicle);
+                    if (closest_distance < 10) {
+                        if (ego_vehicle.approaching(other_vehicle)) {
+                            return COLLISION_COST;
+                        } else {
+                            int current_cost = (int)((10.0 - closest_distance) * 10);
+                            if (current_cost > cost) {
+                                cost = current_cost;
+                            }
                         }
                     }
                 }
@@ -310,16 +315,20 @@ class Telemetry {
             int cost = 0;
             int rightmost_lane_index = props.current_road_lanes() - 1;
             if (ego_vehicle.get_lane() == rightmost_lane_index) {
-                return 500;
+                return COLLISION_COST;
             }
             for (int i = 0; i < this->vehicle_map.size(); i++) {
                 Vehicle other_vehicle = vehicle_map[i];
                 if (ego_vehicle.immediate_left_of(other_vehicle)) {
-                    double displacement = (int)ego_vehicle.abs_distance(other_vehicle);
-                    if (displacement < 50.0) {
-                        int current_cost = (int)(50 - displacement);
-                        if (current_cost > cost) {
-                            cost = current_cost;
+                    double closest_distance = ego_vehicle.closest_distance_during_lane_change(other_vehicle);
+                    if (closest_distance < 10) {
+                        if (ego_vehicle.approaching(other_vehicle)) {
+                            return COLLISION_COST;
+                        } else {
+                            int current_cost = (int)((10.0 - closest_distance) * 10);
+                            if (current_cost > cost) {
+                                cost = current_cost;
+                            }
                         }
                     }
                 }
@@ -328,23 +337,11 @@ class Telemetry {
         }
 
         int cost_current_lane() {
-            int cost = 0;
-            for (int i = 0; i < this->vehicle_map.size(); i++) {
-                Vehicle other_vehicle = vehicle_map[i];
-                bool same_lane = ego_vehicle.same_lane_as(other_vehicle);
-                bool behind = ego_vehicle.behind(other_vehicle);
-                if (same_lane && behind) {
-                    double distance = other_vehicle.get_s() - ego_vehicle.get_s();
-                    if (distance > 0 && distance < 100) {
-                        int current_cost = 100 - (int)distance;
-                        if (current_cost > cost) {
-                            cost = current_cost;
-                        }
-                    }
-                }
+            double closest_vehicle_ahead_distance = ego_vehicle.closest_vehicle_ahead_distance(vehicle_map);
+            if (closest_vehicle_ahead_distance < 100) {
+                return (100 - closest_vehicle_ahead_distance);
             }
-
-            return cost;
+            return 0;
         }
 
         void process_cost_function() {
@@ -355,37 +352,27 @@ class Telemetry {
             Utils::print_message(message);
 
             int LANE_CHANGE_MAX_COST = 80;
-            if (cost_lane_keeping > LANE_CHANGE_MAX_COST &&
-                cost_lane_change_left > LANE_CHANGE_MAX_COST &&
-                cost_lane_change_right > LANE_CHANGE_MAX_COST) {
+            bool lane_change_left_criteria_met = cost_lane_change_left <= cost_lane_keeping &&
+                cost_lane_change_left <= cost_lane_change_right &&
+                cost_lane_change_left <= LANE_CHANGE_MAX_COST;
+            bool lane_change_right_criteria_met = cost_lane_change_right <= cost_lane_keeping &&
+                cost_lane_change_right <= cost_lane_change_left &&
+                cost_lane_change_right <= LANE_CHANGE_MAX_COST;
+
+            if (lane_change_left_criteria_met) {
+                Utils::print_message("<<<<<");
+                ego_vehicle.prepare_lane_change_left();
+            } else if (lane_change_right_criteria_met) {
+                Utils::print_message(">>>>>");
+                ego_vehicle.prepare_lane_change_right();
+            } else {
+                double closest_vehicle_ahead_distance = ego_vehicle.closest_vehicle_ahead_distance(vehicle_map);
+                if (closest_vehicle_ahead_distance > 25) {
+                    Utils::print_message("ACCELERATE");
+                    ego_vehicle.accelerate();
+                } else {
                     Utils::print_message("SLOW DOWN");
                     ego_vehicle.slow_down();
-            } else {
-                if (cost_lane_change_left < cost_lane_keeping && cost_lane_change_left < cost_lane_change_right) {
-                    Utils::print_message("<<<<<");
-                    ego_vehicle.prepare_lane_change_left();
-                } else if (cost_lane_change_right < cost_lane_keeping && cost_lane_change_right < cost_lane_change_left) {
-                    Utils::print_message(">>>>>");
-                    ego_vehicle.prepare_lane_change_right();
-                } else {
-                    double vehicle_ahead_distance;
-                    for (int i = 0; i < this->vehicle_map.size(); i++) {
-                        Vehicle other_vehicle = vehicle_map[i];
-                        if (ego_vehicle.same_lane_as(other_vehicle) &&
-                            ego_vehicle.behind(other_vehicle)) {
-                                double current_distance = ego_vehicle.abs_distance(other_vehicle);
-                                if (current_distance < vehicle_ahead_distance) {
-                                    vehicle_ahead_distance = current_distance;
-                                }
-                            }
-                    }
-                    if (vehicle_ahead_distance > 50) {
-                        Utils::print_message("SLOW DOWN");
-                        ego_vehicle.slow_down();
-                    } else {
-                        Utils::print_message("ACCELERATE");
-                        ego_vehicle.accelerate();
-                    }
                 }
             }
         }
