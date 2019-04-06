@@ -135,7 +135,7 @@ Where,
 `50` is the cost of keeping current lane.
 
 Here's the screenshot from Udacity's workspace showing that:
-![Workspace log: Cost of lane change/keeping](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/lane_keeping.png)
+![Workspace log: Cost of lane change/keeping](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/lane_change_screenshot.png)
 
 ### Issues
 1. There are possibly tons of non-functional issues related to improving performance, caching, and using proper standards and design patterns to improve it. I have just not been able to optimize them further in the interest of time, and my limited knowledge of C++ as of now.
