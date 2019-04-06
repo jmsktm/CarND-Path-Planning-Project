@@ -215,5 +215,35 @@ class Vehicle {
 
             return distance_later < distance_now;
         }
+
+        Vehicle vehicle_ahead_of_me(map<int, Vehicle> &vehicles) {
+            Vehicle vehicle;
+            double distance = 1000;
+            for (int i = 0; i < vehicles.size(); i++) {
+                Vehicle other_vehicle = vehicles[i];
+                if (this->get_lane() == other_vehicle.get_lane() && this->behind(other_vehicle)) {
+                    if (this->abs_distance(other_vehicle) < distance) {
+                        vehicle = other_vehicle;
+                        distance = this->abs_distance(other_vehicle);
+                    }
+                }
+            }
+            return vehicle;
+        }
+        
+        void keep_lane(map<int, Vehicle> &vehicles) {
+            Vehicle vehicle_ahead_of_me = this->vehicle_ahead_of_me(vehicles);
+            if (vehicle_ahead_of_me.get_id() == -1) {
+                this->accelerate();
+            } else {
+                double distance = this->abs_distance(vehicle_ahead_of_me);
+                if (distance < 30 && this->approaching(vehicle_ahead_of_me)) {
+                    std::cout << "Following lane. Distance = " << std::to_string(distance) << std::endl;
+                    this->slow_down();
+                } else {
+                    this->accelerate();
+                }
+            }
+        }
 };
 #endif

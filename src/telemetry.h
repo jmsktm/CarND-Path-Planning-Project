@@ -366,14 +366,7 @@ class Telemetry {
                 Utils::print_message(">>>>>");
                 ego_vehicle.prepare_lane_change_right();
             } else {
-                double closest_vehicle_ahead_distance = ego_vehicle.closest_vehicle_ahead_distance(vehicle_map);
-                if (closest_vehicle_ahead_distance > 25) {
-                    Utils::print_message("ACCELERATE");
-                    ego_vehicle.accelerate();
-                } else {
-                    Utils::print_message("SLOW DOWN");
-                    ego_vehicle.slow_down();
-                }
+                ego_vehicle.keep_lane(vehicle_map);
             }
         }
         /* Move the logics related to cost function and lane change to a separate file - end */
