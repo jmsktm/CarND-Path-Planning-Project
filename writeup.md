@@ -30,7 +30,7 @@ I have refactored main.cpp, and used the classes - *Telemetry*, *SmoothPlanner*,
 
 When the application is first run, it creates an instance of a vehicle (for ego vehicle) and the map. These are made available to the onMessage event handler.
 
-![Highway Driving](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/main-classes.png)
+![main.cpp](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/main-classes.png)
 
 ### map.h
 It stores the coordinates from the highway_map.csv file as a vector of waypoints.
@@ -84,3 +84,60 @@ Some utility static functions for purposes like printing out a message, set of c
 ### test/*_tests.cpp
 Provides unit tests for implementation classes. Eg `test/map_tests.cpp` comprises of unit tests for the methods in map.h.
 
+
+## Cost functions and State transition
+While driving, the vehicle makes decision on whether to keep lane, switch lane to left or right, or accelerate/slow down based on the cost function.
+
+Here's the diagram from Udacity which I have followed to perform state transition:
+
+![State transition diagram by Udacity](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/state_diagram.png)
+
+The logic is arranged in four neatly organized methods in `telemetry.h`.
+
+- cost\_left\_lane()
+- cost\_right\_lane()
+- cost\_current\_lane()
+- process\_cost\_function()
+
+![Cost functions](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/main-classes.png)
+
+#### cost\_left\_lane() / cost\_right\_lane()
+- If the vehicle is already in the far lane or far right lane, the cost is returned as a big number (500 in my case).
+- The cost for any lane switch alone is 50.
+- If there are other vehicles in the proximity in the target lane, that will add to the cost. In my code, I am checking for how close other vehicles will come to the ego vehicle (considering the position and the velocity of both the vehicles) during the period of lane transition. The logic for that is contained in the method `Vehicle#closest_distance_during_lane_change(Vehicle &other_vehicle`. Based on this, and whether the two vehicles will be approaching or going far from each other after that, I am making some additional calculations for the cost. Eg. if the closest they'll get during the lane transition is below 10 meters, and they'll be approaching each other afterwards, I have marked it as a scenario of possible collision, and I'm returning the cost as 500 (same as that of leaving the road).
+
+![Cost functions for switching to the left lane](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/cost_left_lane.png)
+
+#### cost\_current\_lane()
+![Cost functions for keeping lane](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/cost_current_lane.png)
+I have a pretty simple implementation for that. If is no vehicle within 100 meters ahead of the ego vehicle in the same lane, the cost is zero. If there is, it's how many meters they are within the last 100 meters. Say, if the closest vehicle ahead of of the ego vehicle is at 30 meters, the cost is 100-30=70.
+
+#### process\_cost\_function()
+If the cost of switching lane to the left or right is less than 80, and is lesser than the cost of staying in the current lane, we prepare for lane change in that direction. 
+
+![Prepare lane change left/right](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/prepare_lane_change.png)
+
+Preparing for lane change is just about setting the value for `ref_lane` to the left or right lane. Then in subsequent event calls, the route builder will consider the waypoints from the ref-lane for generating the path coordinates using spline.
+
+If the lane change criteria is not met, the vehicle just follows the same lane, by adjusting distance and velocity with the car ahead of it. The definition for lane keeping is available in vehicle.h.
+
+![Keep lane](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/lane_keeping.png)
+
+When the vehicle is running on the simulator, I am writing the cost of lane change/keeping to the console/log. It's formatted as:
+
+```
+30 <--- 50 ---> 40
+```
+
+Where,  
+`30` is the cost of lane change to the left
+`40` is the cost of lane change to the right, and
+`50` is the cost of keeping current lane.
+
+Here's the screenshot from Udacity's workspace showing that:
+![Workspace log: Cost of lane change/keeping](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/lane_keeping.png)
+
+### Issues
+1. There are possibly tons of non-functional issues related to improving performance, caching, and using proper standards and design patterns to improve it. I have just not been able to optimize them further in the interest of time, and my limited knowledge of C++ as of now.
+2. The lane keeping isn't that great right now. In the video I have include above, the vehicle navigates fine without collision for around 10 miles. But in many instances, our ego vehicle goes too close first, and then too far; sometimes leading to a collision. I could probably use reference_velocity better to maintain constant distance between the vehicles, or maybe the chapter (PID control) will be of help in this regards.
+3. I have seen the vehicle go out of lane once or twice. That can be looked into further.
