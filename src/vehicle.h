@@ -2,6 +2,7 @@
 #define SDC_VEHICLE_MODULE
 
 #include <map>
+#include <vector>
 #include <iostream>
 #include <algorithm> // min, max
 #include <stdlib.h> // rand
@@ -11,9 +12,10 @@
 #include "helpers.h" // rad2deg
 
 using std::map;
+using std::vector;
 
 static const double MAX_ACCELERATION = 0.224;
-static const double SUFFICIENT_GAP_DISTANCE = 50.0;
+static const double MPH_TO_METERS_PER_SEC_CONV = 0.447038;
 
 class Vehicle {
     private:
@@ -57,7 +59,7 @@ class Vehicle {
             if (this->vx == 0) {
                 this->vx = 0.00001;
             }
-            this->speed = sqrt(this->vx * this->vx + this->vy * this->vy);
+            this->speed = this->get_speed();
             this->yaw = atan(this->vy / this->vx);
         }
 
@@ -104,7 +106,7 @@ class Vehicle {
         }
 
         double get_speed() {
-            return this->speed;
+            return sqrt(this->vx * this->vx + this->vy * this->vy);
         }
 
         double get_yaw() {
@@ -162,6 +164,56 @@ class Vehicle {
 
         double abs_distance(Vehicle another_vehicle) {
             return abs(distance(another_vehicle)); // net distance with other vehicle; always positive
+        }
+
+        double closest_vehicle_ahead_distance(map<int, Vehicle> &vehicles) {
+            double least_distance = 10000;
+            for (int i = 0; i < vehicles.size(); i++) {
+                Vehicle another_vehicle = vehicles[i];
+                if (this->same_lane_as(another_vehicle) && this->behind(another_vehicle)) {
+                    double distance = this->abs_distance(another_vehicle);
+                    if (distance < least_distance) {
+                        least_distance = distance;
+                    }
+                }
+            }
+
+            return least_distance;
+        }
+
+        double time_to_complete_lane_change() {
+            double lane_change_distance = 2 * props.lane_switch_in_meters();
+            double velocity_in_meters_per_sec = this->get_speed() * MPH_TO_METERS_PER_SEC_CONV;
+            return lane_change_distance / velocity_in_meters_per_sec;
+        }
+
+        double closest_distance_during_lane_change(Vehicle &other_vehicle) {
+            int lane_change_duration_ms = (int)(this->time_to_complete_lane_change() * 1000);
+            int lapse = 0;
+            int steps = 5;
+            int closest_distance = 1000;
+            for (int i = 0; i < steps; i++) {
+                lapse += (lane_change_duration_ms / steps);
+                double lapse_in_seconds = lapse / 1000;
+                double this_s = this->get_s() + (this->get_speed() * MPH_TO_METERS_PER_SEC_CONV) * lapse_in_seconds; // s2 = s1 + v*dt
+                double other_s = other_vehicle.get_s() + (other_vehicle.get_speed() * MPH_TO_METERS_PER_SEC_CONV) * lapse_in_seconds;
+                double gap = abs(this_s - other_s);
+                if (gap < closest_distance) {
+                    closest_distance = gap;
+                }
+            }
+            return closest_distance;
+        }
+
+        bool approaching(Vehicle &other_vehicle) {
+            double duration = 1.0;
+            double distance_now = abs(this->get_s() - other_vehicle.get_s());
+
+            double this_s = this->get_s() + (this->get_speed() * MPH_TO_METERS_PER_SEC_CONV) * duration;
+            double other_s = other_vehicle.get_s() + (other_vehicle.get_speed() * MPH_TO_METERS_PER_SEC_CONV) * duration;
+            double distance_later = abs(this_s - other_s);
+
+            return distance_later < distance_now;
         }
 };
 #endif
