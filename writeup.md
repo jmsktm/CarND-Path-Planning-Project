@@ -99,7 +99,7 @@ The logic is arranged in four neatly organized methods in `telemetry.h`.
 - cost\_current\_lane()
 - process\_cost\_function()
 
-![Cost functions](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/main-classes.png)
+![Cost functions](https://github.com/jmsktm/CarND-Path-Planning-Project/blob/master/public/images/cost_function.png)
 
 #### cost\_left\_lane() / cost\_right\_lane()
 - If the vehicle is already in the far lane or far right lane, the cost is returned as a big number (500 in my case).
